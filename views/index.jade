@@ -3,3 +3,11 @@ extends layout
 block content
   h1= title
   p Welcome to #{title}
+    b ROOMS
+      #rooms
+      #conversation
+      input#data(style='width: 200px;')
+      input#datasend(type='button', value='send')
+
+block controller
+  script(src="assets/js/chat.js")

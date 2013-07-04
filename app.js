@@ -1,12 +1,64 @@
-var app = require('express')()
+var express = require('express')
+  , app = express()
   , server = require('http').createServer(app)
-  , io = require('socket.io').listen(server);
+  , io = require('socket.io').listen(server)
+  , expressValidator = require('express-validator');
 
 server.listen(8080);
 
+Object.defineProperty(global, '__stack', {
+get: function() {
+        var orig = Error.prepareStackTrace;
+        Error.prepareStackTrace = function(_, stack) {
+            return stack;
+        };
+        var err = new Error;
+        Error.captureStackTrace(err, arguments.callee);
+        var stack = err.stack;
+        Error.prepareStackTrace = orig;
+        return stack;
+    }
+});
+
+Object.defineProperty(global, '__', {
+get: function() {
+        return __stack[1].getLineNumber();
+    }
+});
+
+Object.defineProperty(global, '__function', {
+get: function() {
+        return __stack[1].getFunctionName();
+    }
+});
+
+app.set('views', __dirname + '/views')
+app.set('view engine', 'jade');
+//app.use(express.logger('dev'));
+app.use('/assets',express.static(__dirname + '/assets'));
+app.use('/bootstrap', express.static(__dirname + '/static/bootstrap'));
+app.use('/public',express.static(__dirname + '/public'));
+app.use(express.bodyParser());
+app.use(express.cookieParser('larry'));
+//app.use(express.session({secret:'fantasy',store: new DynamoDBStore(options)}));
+app.use(express.session({secret:'fantasy'}));
+app.use(express.csrf());
+app.use(expressValidator());
+app.use(function csrf(req, res, next) {
+  res.locals.token = req.session._csrf;
+  next();
+});
+
+app.locals.navs = [{name:'注册',link:'signup'},{name:'登录', link:'login'}];
+
+
 // routing
 app.get('/', function (req, res) {
-  res.sendfile(__dirname + '/index.html');
+	res.render('index');
+});
+
+app.get('/lobby', function(req, res){
+  res.render('lobby');
 });
 
 // usernames which are currently connected to the chat
