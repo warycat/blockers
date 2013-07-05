@@ -36,8 +36,8 @@ app.set('views', __dirname + '/views')
 app.set('view engine', 'jade');
 //app.use(express.logger('dev'));
 app.use('/assets',express.static(__dirname + '/assets'));
-app.use('/bootstrap', express.static(__dirname + '/static/bootstrap'));
 app.use('/public',express.static(__dirname + '/public'));
+app.use('/controllers',express.static(__dirname + '/controllers'));
 app.use(express.bodyParser());
 app.use(express.cookieParser('larry'));
 //app.use(express.session({secret:'fantasy',store: new DynamoDBStore(options)}));
@@ -54,21 +54,35 @@ app.locals.navs = [{name:'注册',link:'signup'},{name:'登录', link:'login'}];
 
 // routing
 app.get('/', function (req, res) {
-	res.render('index');
+	res.render('chat');
 });
 
 app.get('/lobby', function(req, res){
   res.render('lobby');
 });
 
+app.get('/rooms', function(req, res){
+  console.log(io);
+  res.send(io.sockets.manager.rooms);
+});
+
 // usernames which are currently connected to the chat
 var usernames = {};
 
 // rooms which are currently available in chat
-var rooms = ['room1','room2','room3'];
+var rooms = ['xxxx'];
+var news = 'welcome to blockers';
 
 io.sockets.on('connection', function (socket) {
 
+  socket.emit('news',news);
+  
+  socket.on('lobby', function(){
+    socket.join('');
+    var clients = io.sockets.clients('');   
+    io.sockets.in('').emit('updatelobby',clients.length); 
+  });
+  
 	// when the client emits 'adduser', this listens and executes
 	socket.on('adduser', function(username){
 		// store the username in the socket session for this client
@@ -78,7 +92,7 @@ io.sockets.on('connection', function (socket) {
 		// add the client's username to the global list
 		usernames[username] = username;
 		// send client to room 1
-		socket.join('room1');
+		socket.join('');
 		// echo to client they've connected
 		socket.emit('updatechat', 'SERVER', 'you have connected to room1');
 		// echo to room 1 that a person has connected to their room
@@ -115,5 +129,8 @@ io.sockets.on('connection', function (socket) {
 		// echo globally that this client has left
 		socket.broadcast.emit('updatechat', 'SERVER', socket.username + ' has disconnected');
 		socket.leave(socket.room);
+		socket.leave('');
+		var clients = io.sockets.clients('');   
+    	io.sockets.in('').emit('updatelobby',clients.length); 
 	});
 });

@@ -2,31 +2,27 @@ extends layout
 
 block content
   .container
-    table.table.table-hover
-      thead
-        tr
-          th 房间
-          th 看台
-          th 玩家
-          th 游戏
-      tbody
-        tr
-          td awl
-          td 2
-          td 5
-          td 开始
-        tr
-          td xuru
-          td 1
-          td 4
-          td 等待
-        tr
-          td ts
-          td 0
-          td 0
-          td 录像
-    .control-group
-      label.control-label 房间名称
-    .controls
-      input(type='text')
-    button.btn.btn-primary(type='submit') 开房
+    .well
+      h3 大厅
+      p#players 0个人正在进行游戏
+      table.table.table-hover
+        thead
+          tr
+            th 房间
+            th 看台
+            th 玩家
+            th 游戏
+        tbody
+          tr
+            td awl
+            td 2
+            td 5
+            td 开始
+      .control-group
+        label.control-label 房间名称
+      .controls
+        input(type='text')
+      button.btn.btn-primary(type='submit') 开房
+
+block controller
+  script(src='controllers/lobby.js')
