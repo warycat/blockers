@@ -1,6 +1,8 @@
 blockers
 ========
 
+[参考图片](http://adit.pixnet.net/blog/post/42393457-%5B%E9%96%8B%E7%AE%B1%26%E4%BB%8B%E7%B4%B9%5D-blockers!-%E5%A4%A7%E7%88%86%E6%A0%BC!)
+
 经典桌游 Blockers 大爆格
 
 簡介：

@@ -2,8 +2,8 @@ var express = require('express')
   , app = express()
   , server = require('http').createServer(app)
   , io = require('socket.io').listen(server)
-  , expressValidator = require('express-validator');
-
+  , expressValidator = require('express-validator')
+  , _ = require('underscore');
 server.listen(8080);
 
 Object.defineProperty(global, '__stack', {
@@ -42,15 +42,18 @@ app.use(express.bodyParser());
 app.use(express.cookieParser('larry'));
 //app.use(express.session({secret:'fantasy',store: new DynamoDBStore(options)}));
 app.use(express.session({secret:'fantasy'}));
-app.use(express.csrf());
+// app.use(express.csrf());
 app.use(expressValidator());
-app.use(function csrf(req, res, next) {
-  res.locals.token = req.session._csrf;
-  next();
-});
+// app.use(function csrf(req, res, next) {
+//   res.locals.token = req.session._csrf;
+//   next();
+// });
 
 app.locals.navs = [{name:'注册',link:'signup'},{name:'登录', link:'login'}];
 
+var rooms = {};
+
+var colors = ['red','yellow','green','blue','purple'];
 
 // routing
 app.get('/', function (req, res) {
@@ -61,16 +64,37 @@ app.get('/lobby', function(req, res){
   res.render('lobby');
 });
 
-app.get('/rooms', function(req, res){
-  console.log(io);
-  res.send(io.sockets.manager.rooms);
+app.post('/create', function(req, res){
+  req.assert('room', 'Please enter a 3 digit number').len(3,3).isNumeric();
+  
+  var errors = req.validationErrors();
+  if(errors){
+    res.redirect('/lobby');
+  }else{
+	rooms = _.union(rooms, [req.body.room]);
+	console.log(rooms);
+    res.redirect('/desktop/'+req.body.room);
+  }
+});
+
+app.get('/desktop/:room',function(req, res){
+  res.locals.room = req.params.room;
+  res.render('desktop');
+});
+
+app.get('/hand/:room',function(req, res){
+  res.locals.room = req.params.room;
+  var room = req.params.room;
+  if(! _.isObject(rooms[room])) rooms[room] = {};
+  if(! _.isObject(rooms[room].players)) rooms[room].players = {};
+  console.log(rooms);
+  res.render('hand');
 });
 
 // usernames which are currently connected to the chat
 var usernames = {};
 
 // rooms which are currently available in chat
-var rooms = ['xxxx'];
 var news = 'welcome to blockers';
 
 io.sockets.on('connection', function (socket) {
@@ -81,6 +105,20 @@ io.sockets.on('connection', function (socket) {
     socket.join('');
     var clients = io.sockets.clients('');   
     io.sockets.in('').emit('updatelobby',clients.length); 
+  });
+  
+  socket.on('play',function(room_id){
+    socket.join(room);
+    var room = rooms[room_id];
+    console.log(room);
+
+    var count = _.keys(room.players).length;
+    if (count < 5){
+      var color = colors[count];
+      socket.emit('color',color);
+      room.players[color] = {};
+    }
+
   });
   
 	// when the client emits 'adduser', this listens and executes

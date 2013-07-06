@@ -14,6 +14,10 @@ socket.on('updatelobby',function(lobby){
   $('#players').text(lobby + '个人正在进行游戏');
 });
 
+socket.on('updaterooms',function(rooms){
+  console.log(rooms);
+});
+
 $(function(){
   socket.emit('lobby');
 });

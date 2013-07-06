@@ -1,0 +1,12 @@
+extends layout
+
+block content
+  .container
+    .well
+      h3= '房间#' + room + ' 手牌'
+      p 状态
+    #hand
+
+block controller
+  script(src='/controllers/hand.js')
+  script= "$(function(){socket.emit('play','" + room + "')});"

@@ -18,11 +18,12 @@ block content
             td 2
             td 5
             td 开始
-      .control-group
-        label.control-label 房间名称
-      .controls
-        input(type='text')
-      button.btn.btn-primary(type='submit') 开房
+      form(method='post', action='create')
+        .control-group
+          label.control-label 房间号码 (三位数字)
+        .controls
+          input(type='text', name='room')
+        button.btn.btn-primary(type='submit') 开房
 
 block controller
   script(src='controllers/lobby.js')

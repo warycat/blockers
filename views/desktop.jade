@@ -1,0 +1,11 @@
+extends layout
+
+block content
+  .container
+    .well
+      h3= '房间#' + room + ' 看台'
+      p 状态
+    #board
+
+block controller
+  script(src='/controllers/desktop.js')
