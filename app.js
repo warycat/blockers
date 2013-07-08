@@ -84,10 +84,6 @@ app.get('/desktop/:room',function(req, res){
 
 app.get('/hand/:room',function(req, res){
   res.locals.room = req.params.room;
-  var room = req.params.room;
-  if(! _.isObject(rooms[room])) rooms[room] = {};
-  if(! _.isObject(rooms[room].players)) rooms[room].players = {};
-  console.log(rooms);
   res.render('hand');
 });
 
@@ -108,17 +104,30 @@ io.sockets.on('connection', function (socket) {
   });
   
   socket.on('play',function(room_id){
-    socket.join(room);
+    socket.join(room_id);
     var room = rooms[room_id];
-    console.log(room);
-
-    var count = _.keys(room.players).length;
-    if (count < 5){
-      var color = colors[count];
-      socket.emit('color',color);
-      room.players[color] = {};
+    if(!_.isObject(room)){
+      room = {players:[null,null,null,null,null],colors:['red','yellow','green','blue','purple']}
+      rooms[room_id] = room;
     }
-
+    console.log(room.players);
+    for(var i = 0;i<5; i++){
+      if(!room.players[i]){
+        room.players[i] = socket;
+        socket.color = room.colors[i];
+        socket.player = i;
+        socket.isPlayer = true;
+        socket.room = room;
+        socket.emit('color',socket.color);
+        break;
+      }
+    }
+  });
+  
+  socket.on('watch',function(room_id){
+    socket.join(room_id);
+    var room = rooms[room_id];
+    socket.emit('desktop',room.desktop);
   });
   
 	// when the client emits 'adduser', this listens and executes
@@ -168,6 +177,10 @@ io.sockets.on('connection', function (socket) {
 		socket.broadcast.emit('updatechat', 'SERVER', socket.username + ' has disconnected');
 		socket.leave(socket.room);
 		socket.leave('');
+		if(socket.isPlayer) {
+		  console.log(socket);
+		  socket.room.players[socket.player] = null;
+		}
 		var clients = io.sockets.clients('');   
     	io.sockets.in('').emit('updatelobby',clients.length); 
 	});

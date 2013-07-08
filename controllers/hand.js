@@ -13,6 +13,14 @@ socket.on('color',function(color){
   $('h3').css('color',color);
 });
 
+socket.on('draw',function(card){
+  $('#'+card.slot).text(card.name).css('background-color',card.color);
+});
+
+socket.on('end',function(result){
+  $('p').text(result);
+});
+
 function tag(i,j){
   var tags = [['slot1', 'up',    'slot2']
             , ['left',  'slot0', 'right']
