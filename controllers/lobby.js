@@ -9,9 +9,9 @@ socket.on('news',function(news){
   console.log(news);
 });
 
-socket.on('updatelobby',function(lobby){
+socket.on('update lobby',function(lobby){
   console.log('updatelobby',lobby);
-  $('#players').text(lobby + '个人正在进行游戏');
+  $('#players').text(lobby + '玩家正在进行游戏');
 });
 
 socket.on('updaterooms',function(rooms){

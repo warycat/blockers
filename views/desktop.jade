@@ -9,3 +9,4 @@ block content
 
 block controller
   script(src='/controllers/desktop.js')
+  script= "$(function(){socket.emit('watcher','" + room + "')});"
