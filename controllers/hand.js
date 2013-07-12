@@ -13,8 +13,14 @@ socket.on('color',function(color){
   $('h3').css('color',color);
 });
 
-socket.on('draw',function(card){
-  $('#'+card.slot).text(card.name).css('background-color',card.color);
+socket.on('cards',function(cards){
+  _.each(cards,function(card,index){
+    $('#slot'+index).text(card.n).css({'background-color':card.c,color:'#FFFFFF'});  
+  });
+});
+
+socket.on('status',function(status){
+  $('p').text(status);
 });
 
 socket.on('end',function(result){
@@ -70,7 +76,8 @@ $(function(){
       , 'border': '1px solid #000'
       , 'color': 'black'
       }).click(function(){
-        socket.io('action',{'touch':tag(i,j)});
+        var id = $(this).attr('id');
+        socket.emit('action',id);
       });
     }
   }  

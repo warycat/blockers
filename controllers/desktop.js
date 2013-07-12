@@ -9,6 +9,31 @@ socket.on('news',function(news){
   console.log(news);
 });
 
+socket.on('game',function(game){
+  if(!game)return;
+  $('#'+tag(game.row, game.col)).css('border-color',game.currentColor);
+  for(var i=0;i<9;i++){
+    for(var j=0;j<9;j++){
+      var color = game.board[i][j].c;
+      if(color){
+        $(tag(i,j)).css('background-color',color);
+      }  
+    }
+  }
+});
+
+socket.on('place',function(place){
+  var card = place.card;
+  $('#'+tag(place.row,place.col)).text(card.n).css({'background-color':card.c,color:'#FFFFFF'});
+});
+
+socket.on('cursor',function(cursor){
+  if(!cursor)return;
+  console.log(tag(cursor.row,cursor.col));
+  $('.unit').css({'border-color':'#000','border-width':1,'border-radius':0});
+  $('#' + tag(cursor.row,cursor.col)).css({'border-color':cursor.color,'border-width':4,'border-radius':4});
+});
+
 function symbol(i,j)
 {
   var symbols = [ ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
@@ -45,9 +70,9 @@ $(function(){
   }
   
   for(var i=0;i<9;i++){
-    var height = i * 80;
+    var height = i * 10;
     $('<div/>',{id:row(i)}).text(row(i)).appendTo('#board').css({
-      'position':'absolute','width':80,'height':80,'left':0,'top': height+80
+      'position':'absolute','width':'10%','height':'10%','left':'0%','top': height + '%'
     });
   }
 

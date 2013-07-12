@@ -6,11 +6,15 @@ var _ = require('underscore')
 server.listen(8080);
 
 var colors = ['red','yellow','green','blue','purple']
+  , numbers = ['1','2','3','4','5','6','7','8','9']
+  , letters = ['A','B','C','D','E','F','G','H','I']
+  , squares = ['♡','♖','♢','♗','♕','♙','♤','♘','♧']
   , names =  ['1','2','3','4','5','6','7','8','9'
              ,'A','B','C','D','E','F','G','H','I'
              ,'♡','♖','♢','♗','♕','♙','♤','♘','♧'
              ,'♔']
-  , games = {};
+  , games = {}
+  , news = 'welcome to blockers';
 
 io.sockets.on('connection',function(socket){
   socket.emit('news',news);
@@ -29,7 +33,7 @@ io.sockets.on('connection',function(socket){
     var players = playersIn(room)
     var watchers = watchersIn(room);
     if(players.length == 5){
-      init(room);
+      init();
     }
   });
   
@@ -39,10 +43,25 @@ io.sockets.on('connection',function(socket){
     var watcherRoom = 'watcher' + room;
     socket.watcherRoom = watcherRoom;
     socket.join('watcher'+room);
+    socket.emit('game',games[room]);
   });
   
+  socket.on('action',function(control){
+    var game = games[socket.room];
+    if(socket.color != game.currentColor()){
+      socket.emit('status','not your turn!');
+      return;
+    }
+    if(_.indexOf(['left','right','up','down'],control) != -1){
+      move(control);
+    }
+    var index = _.indexOf(['slot0','slot1','slot2','slot3','slot4'],control);
+    if(index != -1){
+      place(index);
+    }
+  });
+    
   socket.on('disconnect', function(){
-    console.log(socket.manager);
     socket.leave('');
     var guests = io.sockets.clients('');
     io.sockets.emit('update lobby',guests.length);
@@ -50,211 +69,178 @@ io.sockets.on('connection',function(socket){
     if(socket.playerRoom) socket.leave(socket.playerRoom);
     if(socket.watcherRoom) socket.leave(socket.watcherRoom);
   });
+  
+  function playersIn(room){
+    return io.sockets.clients('player' + room);
+  }
+
+  function watchersIn(room){
+    return io.sockets.clients('watcher' + room);
+  }
+
+  function game(){
+    this.board = [ ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
+                 , ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
+                 , ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
+                 , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
+                 , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
+                 , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
+                 , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',]
+                 , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',]
+                 , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',] ];
+    this.col = 5;
+    this.row = 5;
+    this.current = 0;
+    this.currentColor = function(){
+      return colors[this.current];
+    }
+  }
+
+  function init(){
+    var room = socket.room;
+    games[room] = new game();
+    var players = playersIn(room);
+    _.each(players, function(player,index){
+      player.color = colors[index];
+      player.hand = [];
+      player.bag = _.chain(names).shuffle().map(function(name){return {c:player.color, n:name}}).value();
+      player.emit('color',colors[index]);
+    });
+    for(var i=0;i<25;i++){
+      draw(room);
+      next(room);
+    }
+    _.each(players,function(player){
+      player.emit('cards',player.hand);
+    });
+  }
+
+  function draw(){
+    var room = socket.room;
+    var players = playersIn(room);
+    var game = games[room];
+    var player = players[game.current];
+    player.hand.push(player.bag.pop());
+  }
+
+  function next(){
+    var room = socket.room;
+    var game = games[room];
+    game.current = (game.current + 1) % 5;
+  }
+  
+  function componentsOfColor(color, board){
+    var sum = 0;
+    for(var i=0;i<9;i++){
+      for(var j=0;j<9;j++){
+        var card = board[i][j];
+        if(!_.isString(card) && card.c == color ){
+          card.mark = 0;
+        }
+      }
+    }
+    for(var i=0;i<9;i++){
+      for(var j=0;j<9;j++){
+        flood(i,j,0);
+      }
+    }
+    for(var i=0;i<9;i++){
+      for(var j=0;j<9;j++){
+        var card = board[i][j];
+        if(!_.isString(card) && card.c == color ){
+          delete card['mark'];
+        }
+      }
+    }
+    return sum;
+    
+    function flood(row,col,mark){
+      if(row<0||row>8||col<0||col>8)return;
+      var card = board[row][col];
+      if(_.isString(card) || card.c != color || card.mark != 0){
+        return;
+      }else{
+        if(mark == 0) {
+          sum++;
+        }
+        card.mark = sum;
+        flood(row-1,col,sum);
+        flood(row+1,col,sum);
+        flood(row,col-1,sum);
+        flood(row,col+1,sum);
+      }
+    }
+  }
+
+  function isDividingPlace(place,board)
+  {
+    var oldCard = board[place.row][place.col];
+    var newCard = place.card;
+    var oldColor = oldCard.c;
+    var newColor = newCard.c;
+    var willPlaceComponents = componentsOfColor(oldColor, board);
+    oldCard.c = newColor;
+    var didPlaceComponents = componentsOfColor(oldColor, board);
+    oldCard.c = oldColor;
+    console.log(willPlaceComponents,didPlaceComponents);
+    if (didPlaceComponents > willPlaceComponents) return true;
+    return false;
+  }
+
+  function isLegalPlace(place,board)
+  {
+    var row = _.indexOf(letters, place.card.n);
+    if(row != -1 && row != place.row) return false;
+    var col = _.indexOf(numbers, place.card.n);
+    if(col != -1 && col != place.col) return false;
+    var square = _.indexOf(squares, place.card.n);
+    if(square != -1 &&  square != (Math.floor(place.row / 3) * 3 + Math.floor(place.col / 3)))return false;
+    if(!_.isString(board[place.row][place.col]) &&  isDividingPlace(place,board))return false;
+    return true;
+  }
+
+  function place(index){
+    var room = socket.room;
+    var game = games[room];
+    var watchers = watchersIn(room);
+    var players = playersIn(room);
+    var player = players[game.current];
+    var card = player.hand[index];
+    if(!isLegalPlace({'card':card,'row':game.row,'col':game.col},game.board)){
+      socket.emit('status','illegal place');
+      return;
+    }
+    game.board[game.row][game.col] = card;
+    player.hand.splice(index, 1);
+    draw(room);
+    io.sockets.in('watcher'+room).emit('place',{'card':card,'row':game.row,'col':game.col});
+    next(room);
+    io.sockets.in('watcher'+room).emit('cursor',{'row':game.row,'col':game.col,'color':game.currentColor()});
+    socket.emit('cards',socket.hand);
+  }
+
+  function move(direction){
+    var room = socket.room;
+    var game = games[room];
+    var players = playersIn(room);
+    var player = players[game.current];
+    switch(direction){
+      case 'left': 
+        game.col = (game.col + 8) % 9;
+        break;
+      case 'right':
+        game.col = (game.col + 1) % 9;
+        break;
+      case 'up':
+        game.row = (game.row + 8) % 9;
+        break;
+      case 'down':
+        game.row = (game.row + 1) % 9;
+        break;
+    }
+    io.sockets.in('watcher' + room).emit('cursor',{'row':game.row,'col':game.col,'color':game.currentColor()});
+  };
+  
 });
 
-function playersIn(room){
-  return io.sockets.clients('player' + room);
-}
-
-function watchersIn(room){
-  return io.sockets.clients('watcher' + room);
-}
-
-function init(room){
-  games[room] = {
-    board:  [ ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
-            , ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
-            , ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
-            , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
-            , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
-            , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
-            , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',]
-            , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',]
-            , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',] ]
-  , col: 5
-  , row: 5
-  , current: 0
-  };
-  var players = playersIn(room);
-  _.each(players, function(player,index){
-    player.emit('color',colors[index]);
-  });
-}
-
-
-
-// Blockers.prototype.play = function (socket) {
-//   if(this.players.length < 5){
-//     var color = this.colors[this.players.length];
-//     this.players.push(socket);
-//     socket.room = this;
-//     socket.color = color;
-//     socket.emit('color',color); 
-//     if(this.players.length == 5){
-//       console.log(this.players.length);
-//       this.begin();
-//       this.draw();
-//     }
-//   }
-// }
-// 
-// Blockers.prototype.begin = function(){
-//   console.log('begin');
-//   this.currentPlayer = this.players[0];
-//   this.row = 5;
-//   this.col = 5;
-//   this.board = [];
-//   this.board =  [ ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
-//                 , ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
-//                 , ['♡','♡','♡','♖','♖','♖','♢','♢','♢',]
-//                 , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
-//                 , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
-//                 , ['♗','♗','♗','♕','♕','♕','♙','♙','♙',]
-//                 , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',]
-//                 , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',]
-//                 , ['♤','♤','♤','♘','♘','♘','♧','♧','♧',] ];
-// 
-// 
-//   var self = this;
-//   _.chain(this.players).each(function(player){
-//     player.bag = _.chain(self.names).shuffle().map(function(name){return {c:player.color, n:name}}).value();
-//     console.log(player.bag);
-//     player.hand = [];
-//     self.currentPlayer = player;
-//     self.draw();
-//     self.draw();
-//     self.draw();
-//     self.draw();
-//     self.draw();
-//   });
-//   this.currentPlayer = this.players[0];
-// }
-// 
-// Blockers.prototype.draw = function(){
-//   console.log('draw');
-//   this.currentPlayer.hand.push(this.currentPlayer.bag.pop());
-//   console.log(this.currentPlayer);
-// }
-// 
-// Blockers.prototype.place = function(index){
-//   console.log('place');
-//   var card = this.currentPlayer.hand[index];
-//   this.currentPlayer.hand.splice(index,1);
-//   this.board[this.row][this.col] = card;
-//   console.log(this.board);
-// }
-// 
-// Blockers.prototype.move = function(control){
-//   
-//   switch(control){
-//     case 'left': 
-//       this.col = (this.col + 8) % 9;
-//       break;
-//     case 'right':
-//       this.col = (this.col + 1) % 9;
-//       break;
-//     case 'up':
-//       this.row = (this.row + 8) % 9;
-//       break;
-//     case 'down':
-//       this.row = (this.row + 1) % 9;
-//       break;
-//     default:
-//       break;
-//   }
-//   
-// }
-
-// usernames which are currently connected to the chat
-var usernames = {};
-
-// rooms which are currently available in chat
-var news = 'welcome to blockers';
-
-// io.sockets.on('connection', function (socket) {
-// 
-//   socket.emit('news',news);
-//   
-//   socket.on('lobby', function(){
-//     socket.join('');
-//     var clients = io.sockets.clients('');   
-//     io.sockets.in('').emit('updatelobby',clients.length); 
-//   });
-//   
-//   socket.on('play',function(room_id){
-//     socket.join(room_id);
-//     var room = rooms[room_id];
-//     if(!_.isObject(room)){
-//       rooms[room_id] = room = new blockers();
-//     }
-//     room.play(socket);
-//   });
-//   
-//   socket.on('watch',function(room_id){
-//     socket.join(room_id);
-//     var room = rooms[room_id];
-//     socket.emit('desktop',room.desktop);
-//   });
-//   
-//   socket.on('move',function(control)){
-//     
-//   }
-//   
-// 	// when the client emits 'adduser', this listens and executes
-// 	socket.on('adduser', function(username){
-// 		// store the username in the socket session for this client
-// 		socket.username = username;
-// 		// store the room name in the socket session for this client
-// 		socket.room = 'room1';
-// 		// add the client's username to the global list
-// 		usernames[username] = username;
-// 		// send client to room 1
-// 		socket.join('');
-// 		// echo to client they've connected
-// 		socket.emit('updatechat', 'SERVER', 'you have connected to room1');
-// 		// echo to room 1 that a person has connected to their room
-// 		socket.broadcast.to('room1').emit('updatechat', 'SERVER', username + ' has connected to this room');
-// 		socket.emit('updaterooms', rooms, 'room1');
-// 	});
-// 
-// 	// when the client emits 'sendchat', this listens and executes
-// 	socket.on('sendchat', function (data) {
-// 		// we tell the client to execute 'updatechat' with 2 parameters
-// 		io.sockets.in(socket.room).emit('updatechat', socket.username, data);
-// 	});
-// 
-// 	socket.on('switchRoom', function(newroom){
-// 		// leave the current room (stored in session)
-// 		socket.leave(socket.room);
-// 		// join new room, received as function parameter
-// 		socket.join(newroom);
-// 		socket.emit('updatechat', 'SERVER', 'you have connected to '+ newroom);
-// 		// sent message to OLD room
-// 		socket.broadcast.to(socket.room).emit('updatechat', 'SERVER', socket.username+' has left this room');
-// 		// update socket session room title
-// 		socket.room = newroom;
-// 		socket.broadcast.to(newroom).emit('updatechat', 'SERVER', socket.username+' has joined this room');
-// 		socket.emit('updaterooms', rooms, newroom);
-// 	});
-// 
-// 	// when the user disconnects.. perform this
-// 	socket.on('disconnect', function(){
-// 		// remove the username from global usernames list
-// 		delete usernames[socket.username];
-// 		// update list of users in chat, client-side
-// 		io.sockets.emit('updateusers', usernames);
-// 		// echo globally that this client has left
-// 		socket.broadcast.emit('updatechat', 'SERVER', socket.username + ' has disconnected');
-// 		socket.leave(socket.room);
-// 		socket.leave('');
-// 		if(socket.isPlayer) {
-// 		  console.log(socket);
-// 		  socket.room.players[socket.player] = null;
-// 		}
-// 		var clients = io.sockets.clients('');   
-//     	io.sockets.in('').emit('updatelobby',clients.length); 
-// 	});
-// });
-
-// module.exports = Blockers;
 
